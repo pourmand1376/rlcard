@@ -54,105 +54,51 @@ class TestHokmJudger(unittest.TestCase):
     def test_get_payoffs(self):
         class MockPlayer:
             def __init__(self, score, is_hakem=False):
-                self.my_score = score
+                self.my_team_score = score
                 self._is_hakem = is_hakem
-                self.hokm = 'H'
                 
             def is_hakem_team(self):
                 return self._is_hakem
 
-        # Test when first team wins (players 0 and 2) - normal case
+        # Test regular win (not 7-0) for hakem team
         players = [
-            MockPlayer(7, True),  # Player 0 has 7 points, hakem team
-            MockPlayer(6, False),  # Player 1 has 6 points
-            MockPlayer(7, True),  # Player 2 has 7 points, hakem team
-            MockPlayer(6, False),  # Player 3 has 6 points
+            MockPlayer(5, True),   # Player 0: hakem team
+            MockPlayer(2, False),  # Player 1
+            MockPlayer(5, True),   # Player 2: hakem team
+            MockPlayer(2, False),  # Player 3
         ]
-        cards_history = []
-        payoffs = self.judger.get_payoffs(players, cards_history)
-        self.assertEqual(payoffs, [1, -1, 1, -1], "Normal win should give 1/-1 payoffs")
+        payoffs = self.judger.get_payoffs(players)
+        self.assertEqual(payoffs, [1, -1, 1, -1], "Regular win should have 1x multiplier")
 
-        # Test when second team wins (players 1 and 3) - normal case
+        # Test 7-0 win for hakem team (2x multiplier)
         players = [
-            MockPlayer(6, False),  # Player 0 has 6 points
-            MockPlayer(7, True),   # Player 1 has 7 points, hakem team
-            MockPlayer(6, False),  # Player 2 has 6 points
-            MockPlayer(7, True),   # Player 3 has 7 points, hakem team
+            MockPlayer(7, True),   # Player 0: hakem team
+            MockPlayer(0, False),  # Player 1
+            MockPlayer(7, True),   # Player 2: hakem team
+            MockPlayer(0, False),  # Player 3
         ]
-        cards_history = []
-        payoffs = self.judger.get_payoffs(players, cards_history)
-        self.assertEqual(payoffs, [-1, 1, -1, 1], "Normal win should give 1/-1 payoffs")
-        
-        # Test traditional scoring
-        players = [
-            MockPlayer(7, True),  # Player 0 has 7 points
-            MockPlayer(6, False), # Player 1 has 6 points
-            MockPlayer(7, True),  # Player 2 has 7 points
-            MockPlayer(6, False), # Player 3 has 6 points
-        ]
-        cards_history = []
-        payoffs = self.judger.get_payoffs(players, cards_history, use_traditional_scoring=True)
-        self.assertEqual(payoffs, [1, 0, 1, 0], "Traditional scoring should give winners points, losers 0")
+        payoffs = self.judger.get_payoffs(players)
+        self.assertEqual(payoffs, [2, -2, 2, -2], "7-0 win by hakem team should give 2x payoff")
 
-        # Test first 7 consecutive hands as hakem (2x multiplier)
+        # Test 7-0 win for non-hakem team (3x multiplier)
         players = [
-            MockPlayer(7, True),   # Player 0 has 7 points, hakem team
-            MockPlayer(6, False),  # Player 1 has 6 points
-            MockPlayer(7, True),   # Player 2 has 7 points, hakem team
-            MockPlayer(6, False),  # Player 3 has 6 points
+            MockPlayer(0, True),   # Player 0: hakem team
+            MockPlayer(7, False),  # Player 1
+            MockPlayer(0, True),   # Player 2: hakem team
+            MockPlayer(7, False),  # Player 3
         ]
-        # Create history where team 0,2 wins first 7 hands
-        cards_history = [
-            [Card('H', 'A'), Card('S', '2'), Card('D', '3'), Card('C', '4')],  # Player 0 wins with hokm
-            [Card('S', 'A'), Card('S', '2'), Card('S', '3'), Card('S', '4')],  # Player 0 wins with high card
-            [Card('D', 'K'), Card('D', '2'), Card('D', 'A'), Card('D', '4')],  # Player 2 wins with high card
-            [Card('H', '2'), Card('S', '5'), Card('D', '7'), Card('C', '9')],  # Player 0 wins with hokm
-            [Card('S', 'K'), Card('S', '2'), Card('S', 'Q'), Card('S', '4')],  # Player 0 wins with high card
-            [Card('C', 'A'), Card('C', '2'), Card('C', '3'), Card('C', '4')],  # Player 0 wins with high card
-            [Card('H', '5'), Card('S', '2'), Card('D', '3'), Card('C', '4')],  # Player 0 wins with hokm
-        ]
-        payoffs = self.judger.get_payoffs(players, cards_history)
-        self.assertEqual(payoffs, [2, -2, 2, -2], "First 7 consecutive hands as hakem should give 2x payoffs")
+        payoffs = self.judger.get_payoffs(players)
+        self.assertEqual(payoffs, [-3, 3, -3, 3], "7-0 win by non-hakem team should give 3x payoff")
 
-        # Test first 7 consecutive hands as non-hakem (3x multiplier)
+        # Test regular win (not 7-0) for non-hakem team
         players = [
-            MockPlayer(6, True),  # Player 0 has 6 points
-            MockPlayer(7, False),   # Player 1 has 7 points, hakem team
-            MockPlayer(6, True),  # Player 2 has 6 points
-            MockPlayer(7, False),   # Player 3 has 7 points, hakem team
+            MockPlayer(3, True),   # Player 0: hakem team
+            MockPlayer(4, False),  # Player 1
+            MockPlayer(3, True),   # Player 2: hakem team
+            MockPlayer(4, False),  # Player 3
         ]
-        # Create history where team 1,3 wins first 7 hands but they are not hakem
-        cards_history = [
-            [Card('S', '2'), Card('H', 'A'), Card('D', '3'), Card('C', '4')],  # Player 1 wins with hokm
-            [Card('S', '2'), Card('S', 'A'), Card('S', '3'), Card('S', '4')],  # Player 1 wins with high card
-            [Card('D', '2'), Card('D', 'K'), Card('D', '3'), Card('D', 'A')],  # Player 3 wins with high card
-            [Card('S', '5'), Card('H', '2'), Card('D', '7'), Card('C', '9')],  # Player 1 wins with hokm
-            [Card('S', '2'), Card('S', 'K'), Card('S', 'Q'), Card('S', '4')],  # Player 1 wins with high card
-            [Card('C', '2'), Card('C', 'A'), Card('C', '3'), Card('C', '4')],  # Player 1 wins with high card
-            [Card('S', '2'), Card('H', '5'), Card('D', '3'), Card('C', '4')],  # Player 1 wins with hokm
-        ]
-        payoffs = self.judger.get_payoffs(players, cards_history)
-        self.assertEqual(payoffs, [-3, 3, -3, 3], "First 7 consecutive hands should give 2x payoffs")
-        
-        # Test when no team has first 7 consecutive hands
-        players = [
-            MockPlayer(7, True),   # Player 0 has 7 points
-            MockPlayer(6, False),  # Player 1 has 6 points
-            MockPlayer(7, True),   # Player 2 has 7 points
-            MockPlayer(6, False),  # Player 3 has 6 points
-        ]
-        # Create history where teams alternate winning hands
-        cards_history = [
-            [Card('H', 'A'), Card('S', '2'), Card('D', '3'), Card('C', '4')],  # Player 0 wins
-            [Card('S', '2'), Card('S', 'A'), Card('S', '3'), Card('S', '4')],  # Player 1 wins
-            [Card('D', 'K'), Card('D', '2'), Card('D', 'A'), Card('D', '4')],  # Player 2 wins
-            [Card('S', '2'), Card('H', '2'), Card('D', '7'), Card('C', '9')],  # Player 1 wins
-            [Card('S', 'K'), Card('S', '2'), Card('S', 'Q'), Card('S', '4')],  # Player 0 wins
-            [Card('C', '2'), Card('C', 'A'), Card('C', '3'), Card('C', '4')],  # Player 1 wins
-            [Card('H', '5'), Card('S', '2'), Card('D', '3'), Card('C', '4')],  # Player 0 wins
-        ]
-        payoffs = self.judger.get_payoffs(players, cards_history)
-        self.assertEqual(payoffs, [1, -1, 1, -1], "Without 7 consecutive wins, normal payoffs apply")
+        payoffs = self.judger.get_payoffs(players)
+        self.assertEqual(payoffs, [-1, 1, -1, 1], "Regular win should have 1x multiplier")
 
     def test_get_legal_actions(self):
         class MockPlayer:

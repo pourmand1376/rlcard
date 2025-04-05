@@ -35,6 +35,10 @@ class HokmJudger:
         for i in range(2, 10):
             self.value_map[str(i)] = i
 
+    # Add class constants for scoring
+    HAKEM_MULTIPLIER = 2
+    NON_HAKEM_MULTIPLIER = 3
+
     def get_winner(self, played_cards, hokm):
         ''' Determine the winner of a round based on played cards and hokm suit.
         
@@ -96,81 +100,28 @@ class HokmJudger:
 
         return winner
 
-    def get_payoffs(self, players, cards_history, use_traditional_scoring=False):
-        ''' Calculate the payoffs for all players at the end of the game.
-        
-        Args:
-            players (list): List of 4 Player objects representing all players in order.
-            cards_history (list): List of lists, where each inner list contains the 4 cards
-                                played in order for each round.
-            use_traditional_scoring (bool, optional): Scoring system selection:
-                                                    - True: Winners get positive points, losers get 0
-                                                    - False: Winners get positive points, losers get negative
-                                                    Defaults to False.
-        
-        Returns:
-            list: List of 4 integers representing payoffs for each player where:
-                 - Normal win: ±1 point
-                 - First 7 consecutive hands as hakem: ±2 points
-                 - First 7 consecutive hands as non-hakem: ±3 points
-        
-        Examples:
-            >>> judger = HokmJudger()
-            >>> # Normal win for team 0,2
-            >>> payoffs = judger.get_payoffs(players, cards_history)  # Returns [1, -1, 1, -1]
-            
-            >>> # First 7 consecutive win as hakem for team 1,3
-            >>> payoffs = judger.get_payoffs(players, cards_history)  # Returns [-2, 2, -2, 2]
-        
-        Note:
-            - Players 0,2 form one team and players 1,3 form the other team
-            - A team wins by taking 7 or more hands in the game
-            - First 7 consecutive wins have special scoring rules
+    def get_payoffs(self, players):
+        ''' Return payoffs with multipliers only when one team gets all 7 tricks
+            - Hakem team wins 7-0: 2x points
+            - Non-hakem team wins 7-0: 3x points
+            - Any other score: 1x points
         '''
-        payoffs = []
+        team_0_score = players[0].my_team_score
+        team_1_score = players[1].my_team_score
+        is_hakem_team_0 = players[0].is_hakem_team()
         
-        # Determine which team won
-        team_0_2_won = players[0].my_score >= 7 or players[2].my_score >= 7
-        team_1_3_won = players[1].my_score >= 7 or players[3].my_score >= 7
-        
-        # Get winning player and check if they're hakem
-        winning_player = players[0] if team_0_2_won else players[1]
-        is_hakem = winning_player.is_hakem_team()
-        
-        # Check first 7 rounds history for consecutive wins
-        is_first_seven = False
-        if len(cards_history) >= 7:
-            first_seven_winners = []
-            for round_cards in cards_history[:7]:
-                winner_id = self.get_winner(round_cards, winning_player.hokm)
-                first_seven_winners.append(winner_id % 2)  # Convert to team ID
-                
-            # Check if all first 7 hands were won by same team
-            if len(set(first_seven_winners)) == 1:
-                winning_team_id = first_seven_winners[0]
-                if (winning_team_id == 0 and team_0_2_won) or \
-                   (winning_team_id == 1 and team_1_3_won):
-                    is_first_seven = True
-        
-        # Determine win multiplier
-        win_multiplier = 1
-        if is_first_seven:
-            win_multiplier = 2 if is_hakem else 3
-            
-        # Assign payoffs based on winning team and scoring system
-        for i in range(4):
-            if i % 2 == 0:  # Team 0,2
-                if team_0_2_won:
-                    payoffs.append(win_multiplier)
-                else:
-                    payoffs.append(0 if use_traditional_scoring else -win_multiplier)
-            else:  # Team 1,3
-                if team_1_3_won:
-                    payoffs.append(win_multiplier)
-                else:
-                    payoffs.append(0 if use_traditional_scoring else -win_multiplier)
-        
-        return payoffs
+        # Check if it's a complete 7-0 win
+        is_seven_zero = (team_0_score == 7 and team_1_score == 0) or (team_0_score == 0 and team_1_score == 7)
+        team_0_wins = team_0_score > team_1_score
+
+        # Only apply multiplier for 7-0 wins
+        if is_seven_zero:
+            multiplier = self.HAKEM_MULTIPLIER if (team_0_wins == is_hakem_team_0) else self.NON_HAKEM_MULTIPLIER
+        else:
+            multiplier = 1
+
+        base_payoff = multiplier if team_0_wins else -multiplier
+        return [base_payoff, -base_payoff, base_payoff, -base_payoff]
 
     def get_legal_actions(self, player, table):
         ''' Determine which cards a player can legally play on their turn.
@@ -202,6 +153,10 @@ class HokmJudger:
             AttributeError: If player object doesn't have a 'hand' attribute
             TypeError: If table contains non-Card objects
         '''
+        # Handle empty hand case
+        if not player.hand:
+            return []
+            
         if not table:  # If table is empty, all cards are legal
             return player.hand
 

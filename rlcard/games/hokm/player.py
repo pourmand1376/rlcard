@@ -1,4 +1,3 @@
-
 import random  # Add this import at the top of the file
 
 class HokmPlayer:
@@ -32,6 +31,12 @@ class HokmPlayer:
         for i in range(2, 10):
             self.value_map[str(i)] = i
 
+        # Initialize memory structures
+        self.memory_finished_cards = {}
+        self.memory_cards_state = {}
+        self.memory_of_hakem = None
+        self.hakem = None  # Add hakem attribute
+
     def is_hakem_team(self):
         ''' Check if the player is in the hakem team
         '''
@@ -58,9 +63,12 @@ class HokmPlayer:
         self.hand.extend(cards)
 
     def remove_from_hand(self, card):
-        ''' Remove a card from the player's hand
-        '''
-        self.hand.remove(card)
+        ''' Remove a card from the player's hand '''
+        for hand_card in self.hand:
+            if hand_card.suit == card.suit and hand_card.rank == card.rank:
+                self.hand.remove(hand_card)
+                return
+        raise ValueError(f"Card {card} not found in hand")
 
     def update_score(self, win_trick=False, points=1):
         ''' Update the player's team score when winning a trick
@@ -119,15 +127,12 @@ class HokmPlayer:
     def get_state(self):
         ''' Get the state of the player
         '''
-        state = {}
-        state['hand'] = self.hand
-        state['hokm'] = self.hokm
-        state['my_team_score'] = self.my_team_score
-        state['other_team_score'] = self.other_team_score
-        state['memory_finished_cards'] = self.memory_finished_cards
-        state['memory_cards_state'] = self.memory_cards_state
-        state['memory_of_hakem'] = self.memory_of_hakem
-        return state
+        return {
+            'hand': self.hand,
+            'hokm': self.hokm,
+            'my_team_score': self.my_team_score,
+            'other_team_score': self.other_team_score
+        }
 
     def record_played_card(self, round_num, player_id, card):
         ''' Simplified card recording with only essential tracking
@@ -174,3 +179,11 @@ class HokmPlayer:
             return self.my_team_score
         else:
             return self.other_team_score
+
+    def set_cards(self, cards):
+        ''' Set the cards in the player's hand
+        
+        Args:
+            cards (list): List of Card objects to set as the player's hand
+        '''
+        self.hand = cards
