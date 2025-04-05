@@ -78,20 +78,18 @@ class HokmGame:
 
     def step(self, action):
         ''' Take a game step
-
-        Args:
-            action (Card): The action taken by the current player
-
-        Returns:
-            dict: The next state
-            int: The ID of the next player
-            bool: Whether the current round is over
-            dict: Additional information about the step
+        
+        Before modifying state, save current state for potential step_back
         '''
         if self.allow_step_back:
-            # Save current state including hands
-            state = self.get_state(self.current_player)
-            state['hands'] = [p.get_hand().copy() for p in self.players]
+            # Save complete game state
+            state = {
+                'current_player': self.current_player,
+                'hokm': self.hokm,
+                'table': self.table.copy(),
+                'hands': [p.get_hand().copy() for p in self.players],
+                'scores': [p.my_team_score for p in self.players]
+            }
             self.state_history.append(state)
 
         # Add card to table
@@ -128,22 +126,31 @@ class HokmGame:
         return self.get_state(self.current_player), self.current_player, round_over, {}
 
     def step_back(self):
-        ''' Take a step back
-
+        ''' Take a step back for RL training purposes
+        
         Returns:
-            bool: True if the step back is successful and False otherwise
+            bool: True if the step back is successful
         '''
         if not self.allow_step_back or len(self.state_history) == 0:
             return False
 
-        # Restore the previous state
+        # Restore the previous state with complete game info
         prev_state = self.state_history.pop()
+        
+        # Restore game state
         self.current_player = prev_state['current_player']
         self.hokm = prev_state['hokm']
-        self.table = prev_state['table']
-        # Restore hands
+        self.table = prev_state['table'].copy()
+        
+        # Important: Restore player hands
         for player, hand in zip(self.players, prev_state['hands']):
-            player.hand = hand
+            player.hand = hand.copy()
+            
+        # Restore any other necessary game state
+        if 'scores' in prev_state:
+            for player, score in zip(self.players, prev_state['scores']):
+                player.my_team_score = score
+                
         return True
 
     def set_hokm(self, hokm):

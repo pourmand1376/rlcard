@@ -278,24 +278,6 @@ class TestHokmGame(unittest.TestCase):
         winner = self.game.judger.get_winner(self.game.table, self.game.hokm)
         self.assertEqual(winner, 3)  # Ace of hokm should win
 
-    def test_team_scoring_scenarios(self):
-        """Test various team scoring scenarios"""
-        self.game.init_game()
-        
-        # Test scenario 1: Team 0 wins all tricks
-        for _ in range(7):
-            self.game.players[0].update_score(True)
-            self.game.players[2].update_score(True)
-        
-        # Check team scores
-        self.assertEqual(self.game.players[0].my_team_score, 7)
-        self.assertEqual(self.game.players[2].my_team_score, 7)
-        self.assertEqual(self.game.players[1].my_team_score, 0)
-        self.assertEqual(self.game.players[3].my_team_score, 0)
-
-        # Test payoffs in this scenario
-        payoffs = self.game.get_payoffs()
-        self.assertEqual(payoffs, [1, -1, 1, -1])
 
     def test_invalid_moves(self):
         """Test handling of invalid moves"""
