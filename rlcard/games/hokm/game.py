@@ -351,3 +351,22 @@ class HokmGame:
             HokmPlayer: The player object corresponding to the given ID
         """
         return self.players[player_id]
+
+    def get_player_id(self):
+        """Get current player's ID.
+        Returns:
+            int: Current player ID (0-3)
+        """
+        return self.current_player
+
+    def get_tricks_won(self, player_id):
+        """
+        Get the number of tricks won by a player's team.
+        
+        Args:
+            player_id (int): The ID of the player (0-3)
+            
+        Returns:
+            int: Number of tricks won by the player's team
+        """
+        return self.players[player_id].my_team_score
