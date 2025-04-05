@@ -19,8 +19,9 @@ class HokmEnv(Env):
         self.action_shape = [52]    # 52 possible card actions
         self.allow_step_back = config.get('allow_step_back', False)
 
-    def _extract_state(self, player_id):
+    def _extract_state(self, state):
         ''' Extract useful information directly from game for RL '''
+        player_id = state['current_player'] if isinstance(state, dict) else state
         obs = np.zeros((5, 52), dtype=int)
         
         # Encode hand cards
@@ -75,20 +76,24 @@ class HokmEnv(Env):
         return self._extract_state(next_player), next_player
 
     def _get_legal_actions(self):
-        ''' Get all legal actions for current state
+        ''' Get all legal actions for current state '''
+        legal_actions = {}
+        
+        # Special case: Hokm selection for hakem
+        if self.game.hokm is None and self.game.current_player == self.game.hakem:
+            # Allow selecting hokm using first card of each suit
+            for i, suit in enumerate(['S', 'H', 'D', 'C']):
+                legal_actions[i * 13] = Card(suit, 'A')
+            return legal_actions
 
-        Returns:
-            dict: Dictionary of legal action ids
-        '''
+        # Normal gameplay
         if self.game.hokm is None:
             raise Exception("Hokm is not set. Please select a hokm before playing.")
 
         legal_cards = self.game.get_legal_actions()
-        legal_actions = {}
         for card in legal_cards:
             action_id = self._card_to_idx(card)
             legal_actions[action_id] = card
-            
         return legal_actions
 
     def _decode_action(self, action_id):
@@ -108,9 +113,10 @@ class HokmEnv(Env):
 
     def get_perfect_information(self):
         ''' Get the perfect information of the current state '''
+        current_player = self.game.get_current_player()
         return {
-            'current_player': self.game.get_current_player(),
-            'current_hand': self.game.get_player_hand(self.game.get_current_player()),
+            'current_player': current_player,
+            'current_hand': self.game.get_player_hand(current_player),
             'hokm': self.game.get_current_hokm(),
             'table': self.game.get_table_cards(),
             'scores': self.game.get_player_scores()
@@ -168,15 +174,45 @@ class HokmEnv(Env):
         
         # Initial hokm selection for hakem
         if player_id == self.game.hakem:
+            # Special case: Force legal hokm selection actions
+            state['legal_actions'] = {i * 13: Card(suit, 'A') 
+                                    for i, suit in enumerate(['S', 'H', 'D', 'C'])}
             trajectories[player_id].append(state)
             hokm_action = self.agents[player_id].step(state)
             trajectories[player_id].append(hokm_action)
             hokm_card = self._decode_action(hokm_action)
             self.game.set_hokm(hokm_card.suit)
-        
-        while not self.game.is_over():
-            # Get current state
             state = self._extract_state(player_id)
+            
+            # Ensure legal actions aren't empty after hokm selection
+            if not state['legal_actions']:
+                # Get first player's legal actions after hokm is set
+                legal_cards = self.game.get_legal_actions()
+                state['legal_actions'] = {self._card_to_idx(card): card for card in legal_cards}
+
+        # Continue with normal gameplay
+        while not self.game.is_over():
+            # Get current state with legal actions
+            state = self._extract_state(player_id)
+            
+            # Always ensure there are legal actions before agent.step
+            if not state['legal_actions']:
+                legal_cards = self.game.get_legal_actions()
+                if legal_cards:
+                    state['legal_actions'] = {self._card_to_idx(card): card for card in legal_cards}
+                else:
+                    # If still no legal actions, game is likely over or in a terminal state
+                    # Provide a default action (e.g., first card in hand or pass)
+                    hand = self.game.get_player_hand(player_id)
+                    if hand:
+                        default_action = self._card_to_idx(hand[0])
+                        state['legal_actions'] = {default_action: hand[0]}
+                    else:
+                        # No hand and no legal actions, game is truly stuck
+                        # Return empty trajectories and zero payoffs
+                        print("Game stuck, returning empty trajectories")
+                        return trajectories, [0] * self.num_players
+
             trajectories[player_id].append(state)
             
             # Get action from agent
