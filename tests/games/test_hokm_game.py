@@ -26,8 +26,8 @@ class TestHokmGame(unittest.TestCase):
 
     def test_hakem_selection(self):
         """Test hakem selection and initial state"""
-        state = self.game.init_game()
-        hakem = state['hakem']
+        self.game.init_game()
+        hakem = self.game.get_hakem()
         
         self.assertIsNotNone(hakem)
         self.assertTrue(0 <= hakem < 4)
@@ -35,8 +35,8 @@ class TestHokmGame(unittest.TestCase):
 
     def test_step(self):
         """Test game step"""
-        state = self.game.init_game()
-        current_player = state['current_player']
+        self.game.init_game()
+        current_player = self.game.get_current_player()
         
         # Take a legal action
         legal_actions = self.game.get_legal_actions()
@@ -67,24 +67,23 @@ class TestHokmGame(unittest.TestCase):
 
     def test_scoring(self):
         """Test score updates"""
-        state = self.game.init_game()
-        current_player = state['current_player']
-        initial_scores = [p.my_team_score for p in self.game.players]
+        self.game.init_game()
+        current_player = self.game.get_current_player()
+        initial_scores = self.game.get_player_scores()
         
         # Get actual cards from player's hand
-        hand = self.game.players[current_player].get_hand()
+        hand = self.game.get_player_hand(current_player)
         # Play first card from hand
         action = hand[0]
         self.game.step(action)
         
         # Complete the round with legal cards from other players
         for i in range(3):
-            next_player = (current_player + i + 1) % 4
             legal_actions = self.game.get_legal_actions()
             self.game.step(legal_actions[0])
             
         # Check score updates
-        final_scores = [p.my_team_score for p in self.game.players]
+        final_scores = self.game.get_player_scores()
         self.assertNotEqual(final_scores, initial_scores)  # Scores should change
 
     def test_game_over(self):
@@ -117,7 +116,7 @@ class TestHokmGame(unittest.TestCase):
     def test_hokm_selection(self):
         """Test hokm suit selection"""
         state = self.game.init_game()
-        hakem = state['hakem']
+        hakem = self.game.get_hakem()
         
         # Test hokm selection
         test_hokm = 'H'
@@ -155,7 +154,7 @@ class TestHokmGame(unittest.TestCase):
         self.game.hokm = 'H'  # Set Hearts as hokm
         
         # Play a round with actual cards from players' hands
-        current_player = state['current_player']
+        current_player = self.game.get_current_player()
         # Play first card from current player's hand
         action = self.game.players[current_player].get_hand()[0]
         self.game.step(action)
@@ -175,7 +174,8 @@ class TestHokmGame(unittest.TestCase):
         
         # Remember who hakem is and ensure proper team scoring
         winner_id = self.game.hakem
-        partner_id = (winner_id + 2) % 4
+        partner_id = (winner_id + 2) % 4  # Partner is always 2 positions away
+        
 
         # Simulate 7-0 win for hakem team
         self.game.players[winner_id].my_team_score = 7
@@ -214,8 +214,9 @@ class TestHokmGame(unittest.TestCase):
         self.game.players[3].my_team_score = 0
 
         payoffs = self.game.get_payoffs()
-        multiplier = 2 if 0 == hakem_id or 2 == hakem_id else 3
-        self.assertEqual(payoffs, [multiplier, -multiplier, multiplier, -multiplier])
+        expected_score = 2 if self.game.hakem in (0,2) else 3
+        expected_payoffs = [expected_score, -expected_score, expected_score, -expected_score]
+        self.assertEqual(payoffs, expected_payoffs)
 
     def test_step_back(self):
         """Test step back functionality"""
@@ -223,7 +224,7 @@ class TestHokmGame(unittest.TestCase):
         state = self.game.init_game()
         
         # Get an actual card from player's hand
-        current_player = state['current_player']
+        current_player = self.game.get_current_player()
         initial_hand = self.game.players[current_player].get_hand().copy()
         action = initial_hand[0]
         
@@ -282,7 +283,7 @@ class TestHokmGame(unittest.TestCase):
     def test_invalid_moves(self):
         """Test handling of invalid moves"""
         state = self.game.init_game()
-        current_player = state['current_player']
+        current_player = self.game.get_current_player()
         
         # Set up a scenario where player must follow suit
         first_player_hand = self.game.players[current_player].hand
@@ -330,7 +331,7 @@ class TestHokmGame(unittest.TestCase):
         """Test the hokm selection strategy"""
         for _ in range(5):  # Test multiple games
             state = self.game.init_game()
-            hakem = state['hakem']
+            hakem = self.game.get_hakem()
             
             # Verify hakem's hand has at least 5 cards when selecting hokm
             hakem_hand = self.game.players[hakem].get_hand()
