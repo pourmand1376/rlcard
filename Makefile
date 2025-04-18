@@ -18,7 +18,7 @@ examples: ## run examples
 install-dev: ## install for development
 	pip install -e $(CURDIR)
 
-play-hokm: install-dev ## play hokm
+play-hokm: install-dev ## play hokm with visual display of cards on the table
 	python examples/human/hokm_human.py
 
 

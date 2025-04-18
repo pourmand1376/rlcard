@@ -13,11 +13,16 @@ class HokmEnv(Env):
             config (dict): A configuration dictionary
         '''
         self.name = 'hokm'
-        self.game = HokmGame()
+        self.game = HokmGame(allow_step_back=config.get('allow_step_back', False))
         super().__init__(config)
+        self.num_players = self.game.get_num_players()
+        self.num_actions = self.game.get_num_actions()
+        self.agents = [None for _ in range(self.num_players)]
+        self.allow_step_back = config.get('allow_step_back', False)
+        # Track played cards with player info
+        self.action_record = []
         self.state_shape = [5, 52]  # 5 features x 52 cards (hand, table, hokm, tricks won, current player)
         self.action_shape = [52]    # 52 possible card actions
-        self.allow_step_back = config.get('allow_step_back', False)
 
     def _extract_state(self, state):
         ''' Extract useful information directly from game for RL '''
@@ -48,15 +53,33 @@ class HokmEnv(Env):
         # Encode current player
         obs[4][self.game.get_current_player() * 13:(self.game.get_current_player() + 1) * 13] = 1
 
+        # Get team scores - in Hokm, team 0 consists of players 0,2; team 1 consists of players 1,3
+        player_team = player_id % 2  # 0 or 1
+        other_team = 1 - player_team
+        
+        # Get scores from player objects
+        my_team_score = self.game.players[0].my_team_score if player_team == 0 else self.game.players[1].my_team_score
+        other_team_score = self.game.players[1].my_team_score if player_team == 0 else self.game.players[0].my_team_score
+        
+        # Count completed tricks
+        completed_tricks = my_team_score + other_team_score
+
         return {
             'obs': obs,
-            'legal_actions': self._get_legal_actions()
+            'legal_actions': self._get_legal_actions(),
+            'action_record': self.action_record.copy(),
+            'current_player': player_id,
+            'my_team_score': my_team_score,
+            'other_team_score': other_team_score,
+            'completed_tricks': completed_tricks
         }
 
     def reset(self):
         ''' Start a new game '''
         self.game.init_game()
         current_player = self.game.get_current_player()
+        # Reset action record
+        self.action_record = []
         return self._extract_state(current_player), current_player
 
     def step(self, action):
@@ -71,8 +94,29 @@ class HokmEnv(Env):
                     decoded_action = card
                     break
 
+        # Record the action with player info
+        self.action_record.append((self.game.current_player, decoded_action))
+        
         # Take step in game
-        _, next_player, _, _ = self.game.step(decoded_action)
+        _, next_player, trick_completed, trick_info = self.game.step(decoded_action)
+        
+        # Add trick completion info to the state if a trick was completed
+        if trick_completed:
+            # Get winner information
+            winner = trick_info.get('winner', -1)
+            if winner >= 0:
+                # Get updated scores from the game
+                team_0_score = self.game.players[0].my_team_score
+                team_1_score = self.game.players[1].my_team_score
+                
+                # Add the trick completion info to the action record for display
+                self.action_record.append(('trick_complete', {
+                    'winner': winner,
+                    'team_0_score': team_0_score,
+                    'team_1_score': team_1_score,
+                    'completed_tricks': team_0_score + team_1_score
+                }))
+        
         return self._extract_state(next_player), next_player
 
     def _get_legal_actions(self):

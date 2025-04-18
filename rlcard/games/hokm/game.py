@@ -151,18 +151,24 @@ class HokmGame:
             # Get round winner
             winner = self.judger.get_winner(self.table, self.hokm)
             
-            # Update scores
-            self.players[winner].update_score(True)
+            # Update scores for the winning team only
+            # In Hokm, team 0 consists of players 0,2; team 1 consists of players 1,3
+            winner_team = winner % 2  # Team 0: players 0,2; Team 1: players 1,3
+            
+            # Update the score for both players on the winning team
             for i in range(4):
-                if i != winner and i != (winner + 2) % 4:
-                    self.players[i].update_score(False)
-
+                if i % 2 == winner_team:
+                    self.players[i].my_team_score += 1
+            
             # Store round history and reset table
             self.round_history.append(self.table)
             self.table = []
             self.current_player = winner
 
             if self.is_over():
+                return self.get_state(self.current_player), self.current_player, True, {'winner': winner}
+            else:
+                # Return winner information even if game is not over
                 return self.get_state(self.current_player), self.current_player, True, {'winner': winner}
         else:
             # Move to next player
@@ -274,7 +280,11 @@ class HokmGame:
             list: List of team scores for each player. Players on the same team
                  will have the same score.
         """
-        return [p.my_team_score for p in self.players]
+        # In Hokm, team 0 consists of players 0,2; team 1 consists of players 1,3
+        team_0_score = self.players[0].my_team_score
+        team_1_score = self.players[1].my_team_score
+        
+        return [team_0_score, team_1_score, team_0_score, team_1_score]
 
     def get_state(self, player_id):
         """
