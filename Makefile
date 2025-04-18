@@ -1,20 +1,24 @@
+.PHONY: help
+help:
+	@egrep -h '\s##\s' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m  %-30s\033[0m %s\n", $$1, $$2}'
+
 export PYTHONPATH := $(CURDIR):$(PYTHONPATH)
 
 .PHONY: all test examples install-dev play-hokm
 
 all: test examples
 
-test:
+test: ## run tests
 	python3 -m pytest tests/
 
-examples:
+examples: ## run examples
 	python3 examples/blackjack_dqn.py
 	# Add other example commands as needed
 
-install-dev:
+install-dev: ## install for development
 	pip install -e $(CURDIR)
 
-play-hokm: install-dev
+play-hokm: install-dev ## play hokm
 	python examples/human/hokm_human.py
 
 
