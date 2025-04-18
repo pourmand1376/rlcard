@@ -26,11 +26,16 @@ class HumanAgent(object):
             action (int): The action decided by human
         '''
         _print_state(state)
-        action = int(input('>> You choose action (integer): '))
-        while action < 0 or action >= len(state['legal_actions']):
-            print('Action illegal...')
-            action = int(input('>> Re-choose action (integer): '))
-        return list(state['legal_actions'].keys())[action]
+        
+        while True:
+            try:
+                action = int(input('>> You choose action (integer): '))
+                if action >= 0 and action < len(state['legal_actions']):
+                    return list(state['legal_actions'].keys())[action]
+                else:
+                    print(f'Invalid action. Please enter a number between 0 and {len(state["legal_actions"]) - 1}.')
+            except ValueError:
+                print('Please enter a valid integer.')
 
     def eval_step(self, state):
         ''' 
@@ -86,9 +91,6 @@ def _print_state(state):
         else:
             print(f"Tricks needed to win: Team 0 needs {7-team_0_score}, Team 1 needs {7-team_1_score}")
             
-        print("\nPress Enter to continue to the next trick...")
-        input()
-    
     # Print player's hand
     print('\n=============== Your Hand ===============')
     print_card(hand_cards)
@@ -99,7 +101,7 @@ def _print_state(state):
         # Try to get action record if available
         if action_record:
             # Prepare a horizontal display of cards with their player labels
-            player_positions = ['You', 'Left', 'Partner', 'Right']
+            player_positions = ['You', 'Right', 'Partner', 'Left']
             current_player = state.get('current_player', 0)
             
             # Create a list of (position_name, card) pairs for the most recent cards
@@ -118,7 +120,7 @@ def _print_state(state):
                     continue
                     
                 player_id, card = record
-                # Calculate relative position (0 = human, 1 = left, 2 = partner, 3 = right)
+                # Calculate relative position (0 = human, 1 = right, 2 = partner, 3 = left) for counter-clockwise play
                 relative_pos = (player_id - current_player) % 4
                 table_display.append((player_positions[relative_pos], card))
             
