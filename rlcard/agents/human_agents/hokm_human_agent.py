@@ -1,5 +1,6 @@
 from rlcard.utils.utils import print_card
 from rlcard.games.base import Card
+import time
 
 class HumanAgent(object):
     ''' A human agent for Hokm. It can be used to play against trained models
@@ -90,6 +91,35 @@ def _print_state(state):
             print(f"Final score will be - Team 0: {13-team_1_score}, Team 1: {team_1_score}")
         else:
             print(f"Tricks needed to win: Team 0 needs {7-team_0_score}, Team 1 needs {7-team_1_score}")
+    
+    # Get the previous trick's cards (the most recent completed trick)
+    previous_trick = []
+    for i in range(len(action_record) - 1, -1, -1):
+        if action_record[i][0] == 'trick_complete':
+            # Look for the last 4 cards before this trick completion
+            for j in range(i - 1, max(i - 5, -1), -1):
+                if isinstance(action_record[j], tuple) and len(action_record[j]) == 2 and isinstance(action_record[j][0], int):
+                    previous_trick.insert(0, action_record[j])  # Insert at beginning to maintain order
+            break
+    
+    # Print previous trick if available
+    if previous_trick:
+        print('\n=========== Previous Trick ===========')
+        # Display cards horizontally
+        cards_to_display = [card for _, card in previous_trick]
+        print_card(cards_to_display)
+        
+        # Get player positions relative to the current player
+        player_positions = ['You', 'Right', 'Partner', 'Left']
+        current_player = state.get('current_player', 0)
+        
+        # Display player labels aligned with cards
+        player_labels = []
+        for player_id, _ in previous_trick:
+            relative_pos = (player_id - current_player) % 4
+            player_labels.append(player_positions[relative_pos])
+        
+        print("   ".join([f"   {label}    " for label in player_labels]))
             
     # Print player's hand
     print('\n=============== Your Hand ===============')
